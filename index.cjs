@@ -1,10 +1,10 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-require('dotenv').config(); // Menggunakan dotenv untuk menyimpan token dan API key dengan aman
+require('dotenv').config();
 
 // Inisialisasi bot Discord
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]
 });
 
 // Mengambil token dan API key dari file .env
@@ -15,7 +15,7 @@ const API_KEY = process.env.API_KEY;
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 // Daftar kata terlarang
-const badWords = ["sex", "violence", "harassment", "abuse", "porn", "drugs", "toxic", "kontol", "memek", "toxic", "fuck", /* tambah kata lainnya */];
+const badWords = ["sex", "violence", "harassment", "abuse", "porn", "drugs", "toxic", "kontol", "memek", "fuck", /* tambah kata lainnya */];
 
 // Flag untuk melacak apakah bot sedang memproses permintaan
 let isProcessing = false;
@@ -40,30 +40,23 @@ function containsBadWords(text) {
   return badWords.some(word => lowerText.includes(word));
 }
 
-// Command handler saat ada pesan yang dikirim di Discord
-client.on('messageCreate', async (message) => {
-  // Pastikan bot tidak merespon pesan dari dirinya sendiri
-  if (message.author.bot) return;
+// Event untuk menangani slash command
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
 
-  // Jika pesan mengandung kata terlarang
-  if (containsBadWords(message.content)) {
-    message.reply('Warning: Your message contains inappropriate language. Please be careful!');
-    return;
-  }
-
-  // Jika pesan dimulai dengan "!ask"
-  if (message.content.startsWith('!ask')) {
-    const prompt = message.content.replace('!ask', '').trim();
+  // Command ask
+  if (interaction.commandName === 'ask') {
+    const prompt = interaction.options.getString('question');
 
     // Jika prompt kosong, minta input dari user
     if (!prompt) {
-      message.reply('Please provide a question after "!ask".');
+      await interaction.reply('Please provide a question after `/ask`.');
       return;
     }
 
     // Cek apakah bot sedang memproses permintaan lain
     if (isProcessing) {
-      message.reply('The bot is processing another request, please wait.');
+      await interaction.reply('The bot is processing another request, please wait.');
       return;
     }
 
@@ -78,7 +71,7 @@ client.on('messageCreate', async (message) => {
       .setTimestamp();
 
     // Kirim notifikasi embed ke user
-    await message.reply({ embeds: [processingEmbed] });
+    await interaction.reply({ embeds: [processingEmbed] });
 
     try {
       // Kirim permintaan ke API Google Generative AI
@@ -115,31 +108,58 @@ client.on('messageCreate', async (message) => {
         .setDescription(`**Question:** ${prompt}`)
         .setTimestamp();
 
-         // Tambahkan setiap bagian teks sebagai field di embed
-
-        embedFields.forEach((fieldText, index) => {
-          if (fieldText.trim() !== '') { // Periksa apakah fieldText tidak kosong
-            responseEmbed.addFields({ name: `Answer Part ${index + 1}:`, value: fieldText });
-          }
-        });
-     
-  
+      // Tambahkan setiap bagian teks sebagai field di embed
+      embedFields.forEach((fieldText, index) => {
+        if (fieldText.trim() !== '') {
+          responseEmbed.addFields({ name: `Answer Part ${index + 1}:`, value: fieldText });
+        }
+      });
 
       // Kirim embed respons ke user
-      await message.reply({ embeds: [responseEmbed] });
+      await interaction.editReply({ embeds: [responseEmbed] });
 
     } catch (error) {
       if (error.message.includes('Response was blocked due to safety concerns.')) {
-        message.reply('Sorry, the content you requested was blocked due to safety concerns.');
+        await interaction.editReply('Sorry, the content you requested was blocked due to safety concerns.');
       } else {
         console.error('Error fetching response from AI:', error);
-        message.reply('Sorry, there was an error processing your request.');
+        await interaction.editReply('Sorry, there was an error processing your request.');
       }
     } finally {
       // Reset flag setelah proses selesai
       isProcessing = false;
     }
   }
+
+  // Bagian dari checkprofile, tambahkan opsi untuk mention user lain
+else if (interaction.commandName === 'profile') {
+  // Dapatkan informasi user yang di-mention, jika tidak ada, gunakan user yang menjalankan command
+  const user = interaction.options.getUser('user') || interaction.user;
+  const member = interaction.guild.members.cache.get(user.id);
+
+  // Mengambil tanggal bergabung ke Discord
+  const joinedDiscordAt = user.createdAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Mengambil tanggal bergabung ke server
+  const joinedServerAt = member.joinedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Buat embed dengan informasi profil user
+  const profileEmbed = new EmbedBuilder()
+      .setColor('#0099ff')
+      .setTitle(`${user.username}'s Profile`)
+      .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 512 })) // Menampilkan avatar pengguna
+      .addFields(
+          { name: 'Username', value: user.tag, inline: true },
+          { name: 'User ID', value: user.id, inline: true },
+          { name: 'Joined Discord on', value: joinedDiscordAt, inline: true },
+          { name: 'Joined Server on', value: joinedServerAt, inline: true }
+      )
+      .setFooter({ text: `Requested by ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+      .setTimestamp();
+
+  // Kirimkan embed ke user
+  await interaction.reply({ embeds: [profileEmbed] });
+}
 });
 
 // Login bot menggunakan token
