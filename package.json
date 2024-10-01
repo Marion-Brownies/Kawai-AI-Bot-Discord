@@ -9,14 +9,23 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@discord-player/extractor": "^4.5.1",
+    "@discordjs/rest": "^2.4.0",
+    "@distube/soundcloud": "^2.0.3",
     "@google/generative-ai": "^0.12.0",
     "axios": "^1.7.7",
     "base64-js": "^1.5.1",
-    "discord.js": "^14.16.2",
+    "discord.js": "^14.16.3",
+    "distube": "^5.0.2",
     "dotenv": "^16.4.5",
     "markdown-it": "^13.0.2"
   },
   "devDependencies": {
     "vite": "^4.4.5"
-  }
+  },
+  "main": "main.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
 }
