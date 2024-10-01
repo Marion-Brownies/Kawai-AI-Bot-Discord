@@ -36,7 +36,7 @@ const commands = [
   },
   {
     name: 'play',
-    description: 'Play a song from SoundCloud',
+    description: 'Play a song from Dezzer',
     options: [
         {
             name: 'song',
