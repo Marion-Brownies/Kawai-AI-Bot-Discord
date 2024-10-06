@@ -23,16 +23,22 @@ const API_KEY = process.env.API_KEY;
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 const distube = new DisTube(client, {
-  plugins: [
-    new SpotifyPlugin(),
-    new SoundCloudPlugin(),
-    new YtDlpPlugin()
-  ],
-  leaveOnEmpty: true,
-  leaveOnFinish: true,
-  leaveOnStop: true,
-  searchSongs: 5
+  emitNewSongOnly: true,
+  plugins: [new SpotifyPlugin(), new SoundCloudPlugin(), new YtDlpPlugin()],
 });
+
+// Event untuk memonitor play dan error
+distube
+  .on('playSong', (queue, song) => {
+    queue.textChannel.send(`Now playing **${song.name}** - \`${song.formattedDuration}\``);
+  })
+  .on('addSong', (queue, song) => {
+    queue.textChannel.send(`Added ${song.name} - \`${song.formattedDuration}\` to the queue.`);
+  })
+  .on('error', (channel, error) => {
+    console.error('Error with DisTube:', error);
+    if (channel) channel.send('An error occurred while trying to play the song.');
+  });
 
 let isProcessing = false;
 
@@ -140,7 +146,7 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.commandName === 'play') {
     const query = interaction.options.getString('song');
     if (!query) {
-      await interaction.reply('Please specify a song name or artist!');
+      await interaction.reply('Please specify a song name, artist, or a valid URL!');
       return;
     }
 
@@ -152,55 +158,35 @@ client.on('interactionCreate', async (interaction) => {
 
     try {
       await interaction.deferReply();
-      const searchResult = await distube.search(query, { limit: 5 });
 
-      if (!searchResult || searchResult.length === 0) {
-        await interaction.editReply('No songs found for your search query.');
-        return;
-      }
-
-      const songListEmbed = new EmbedBuilder()
-        .setColor('#1DB954')
-        .setTitle(`Search Results for: ${query}`)
-        .setDescription(searchResult.map((song, index) => `${index + 1}. ${song.name} - ${song.uploader.name}`).join('\n'))
-        .setFooter({ text: 'Select a song by clicking the corresponding button.' });
-
-      const row = new ActionRowBuilder()
-        .addComponents(
-          ...searchResult.map((_, index) => 
-            new ButtonBuilder()
-              .setCustomId(`select_${index}`)
-              .setLabel(`${index + 1}`)
-              .setStyle(ButtonStyle.Primary)
-          )
-        );
-
-      const response = await interaction.editReply({ embeds: [songListEmbed], components: [row] });
-
-      const filter = i => i.customId.startsWith('select_') && i.user.id === interaction.user.id;
-      const collector = response.createMessageComponentCollector({ filter, time: 30 * 1000 });
-
-      collector.on('collect', async i => {
-        const selectedSongIndex = parseInt(i.customId.split('_')[1]);
-        const selectedSong = searchResult[selectedSongIndex];
-
-        await i.deferUpdate();
-        await interaction.editReply({ content: `Playing: ${selectedSong.name} - ${selectedSong.uploader.name}`, components: [] });
-
-        distube.play(voiceChannel, selectedSong.url, {
-          member: interaction.member,
-          textChannel: interaction.channel
-        });
+      // Memainkan musik tanpa parameter message
+      distube.play(voiceChannel, query, {
+        member: interaction.member,
+        textChannel: interaction.channel,
+        emitNewSongOnly: true, // Hanya trigger event saat lagu baru diputar
       });
 
-      collector.on('end', async () => {
-        await interaction.editReply({ content: 'Song selection timed out.', components: [] });
-      });
+      // Mengirim pesan "Now Playing" dengan embed saat lagu diputar
+      const nowPlayingEmbed = new EmbedBuilder()
+        .setColor('#FF69B4')
+        .setTitle('Now Playing')
+        .setDescription(`**${query}**`)
+        .setThumbnail('https://media1.tenor.com/m/609sc-UxciwAAAAC/dancing-oshi-no-ko.gif') // Thumbnail bisa diubah
+        .addFields(
+          { name: 'Requested by', value: interaction.user.username, inline: true },
+          { name: 'Channel', value: voiceChannel.name, inline: true }
+        )
+        .setFooter({ text: 'Music is life!' })
+        .setTimestamp();
+
+      await interaction.editReply({ embeds: [nowPlayingEmbed] });
     } catch (error) {
       console.error('Error playing song:', error);
-      await interaction.editReply('An error occurred while playing the song.');
+      await interaction.editReply('An error occurred while trying to play the song.');
     }
   }
+
+
 
   // Leave command
   if (interaction.commandName === 'leave') {

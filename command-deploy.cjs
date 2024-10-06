@@ -34,30 +34,30 @@ const commands = [
       }
     ]
   },
-  {
-    name: 'play',
-    description: 'Play a song from Dezzer',
-    options: [
-        {
-            name: 'song',
-            type: 3, // STRING type
-            description: 'The song or link you want to play',
-            required: true,
-        }
-    ],
-},
-{
-    name: 'skip',
-    description: 'Skip the current song',
-},
-{
-    name: 'leave',
-    description: 'leave the voice channel',
-},
-{
-    name: 'queue',
-    description: 'Show the current song queue',
-}
+//   {
+//     name: 'play',
+//     description: 'Play a song from Dezzer',
+//     options: [
+//         {
+//             name: 'song',
+//             type: 3, // STRING type
+//             description: 'The song or link you want to play',
+//             required: true,
+//         }
+//     ],
+// },
+// {
+//     name: 'skip',
+//     description: 'Skip the current song',
+// },
+// {
+//     name: 'leave',
+//     description: 'leave the voice channel',
+// },
+// {
+//     name: 'queue',
+//     description: 'Show the current song queue',
+// }
 ];
 
 const rest = new REST({ version: '10' }).setToken(BOT_TOKEN);
